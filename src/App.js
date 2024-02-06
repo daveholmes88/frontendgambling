@@ -8,6 +8,7 @@ function App() {
   const [date, setDate] = useState('');
   const [today, setToday] = useState(true);
   const [data, setData] = useState([0]);
+  const [lastFive, setLastFive] = useState({});
 
   useEffect(() => {
     const d = moment();
@@ -40,18 +41,33 @@ function App() {
       return {home: {name: home}, away: {name: away}, gameId};
     })
     const notPlayed = games[0].home_team_score === 0;
-    const gamesData = [];
+    const teamData = [];
+    const recent = {}
     if (notPlayed) {
-      const teamResp = await fetch('http://localhost:3000/teams');
-      const teamData = await teamResp.json();
-      teamData.forEach(gameData => {
-        const playingToday = teams.find(team => team.home.name === gameData.name || team.away.name === gameData.name);
-        if (playingToday) gamesData.push(gameData);
+      const resp = await fetch('http://localhost:3000/teams');
+      const data = await resp.json();
+      data.teams.forEach(gameData => {
+        const { name } = gameData;
+        const playingToday = teams.find(team => team.home.name === name || team.away.name === gameData.name);
+        if (playingToday) {
+          teamData.push(gameData);
+          const recentGames = data.games.find(game => game.name === gameData.name);
+          let scores = 0;
+          recentGames.data.forEach(game => {
+            if (game.home_team === name) {
+              if (game.home_team_score) scores += 1;
+            } else {
+              if (game.away_team_score) scores += 1;
+            }
+          })
+          recent[recentGames.name] = scores;
+        }
       })
     }
         setToday(notPlayed);
         setGames(teams);
-        setData(gamesData);
+        setData(teamData);
+        setLastFive(recent)
   }
 
   const submit = () => {
@@ -72,8 +88,8 @@ function App() {
       const homeScore = (home.off_score/home.games_played + away.def_score/away.games_played) / 2;
       const awayScore = (home.def_score/home.games_played + away.off_score/away.games_played) / 2;
       return <>
-      <h4>{home.name}: Offense: {homeScore.toFixed(2)}</h4>
-      <h4>{away.name}: Offense: {awayScore.toFixed(2)}</h4>
+      <h4>{home.name}: Offense: {homeScore.toFixed(2)} | Last Five: {lastFive[home.name]}</h4>
+      <h4>{away.name}: Offense: {awayScore.toFixed(2)} | Last Five: {lastFive[away.name]}</h4>
       <p>_____________________________________________</p>
       <br></br>
       </>;
